@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: decision_loop
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    ports:
+      - '8000:8000'
+    working_dir: /app
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides DATABASE_URL from .env so the api container
+      # reaches the db container by service name, not localhost
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/decision_loop
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
